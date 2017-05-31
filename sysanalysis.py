@@ -15,6 +15,10 @@ import connection as cn
 import matplotlib.pyplot as plt
 import sysanalysisprint as sap
 
+
+####THIS IS AN EDIT FOR GITHUB!!!
+
+
 #%% Analysis function
 
 #A generic analysis function that receives an object as an input and returns a thorough analysis of it, with plots and relevant information.
