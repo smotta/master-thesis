@@ -16,9 +16,12 @@ import matplotlib.pyplot as plt
 import sysanalysisprint as sap
 
 
-####THIS IS AN EDIT FOR GITHUB!!!
 
 
+
+
+#%% ###########################################################################
+""" FUNCTIONS FOR THE SYSTEM ANALYSIS AS IS - NO SWITCHING ANALYZED """
 #%% Analysis function
 
 #A generic analysis function that receives an object as an input and returns a thorough analysis of it, with plots and relevant information.
@@ -308,8 +311,8 @@ def selfCselfS(inverters):
             somaC += i.apartments[j].selfC
             somaS += i.apartments[j].selfS
             #Printing the self-consumption and self-sufficiency for each individual apartment:
-            #print("Apartment " + i.apartments[j].ID + " self-consumption is %.2f" %(i.apartments[j].selfC*100))
-            #print("Apartment " + i.apartments[j].ID + " self-sufficiency is %.2f\n" %(i.apartments[j].selfS*100))
+            print("Apartment " + i.apartments[j].ID + " self-consumption is %.2f" %(i.apartments[j].selfC*100))
+            print("Apartment " + i.apartments[j].ID + " self-sufficiency is %.2f\n" %(i.apartments[j].selfS*100))
     
     print("Average self-consumption for all 38 apartments is %.2f \n" %(somaC/38 * 100))
     print("Average self-sufficiency for all 38 apartments is %.2f \n" %(somaS/38 * 100))
@@ -364,6 +367,7 @@ def analysisDay(item, date):
         dateSCinst = md.selfConsumptionInst(dateconsumption, dategeneration, datetimestamp)
         dateSS = md.selfSufficiency(dateconsumption, dategeneration, datetimestamp)
         dateSSinst = md.selfSufficiencyInst(dateconsumption, dategeneration, datetimestamp)
+              
         
         plt.figure()
         plt.title("Self-consumption and self-sufficiency analysis for dates " + date[0] + " - " + date[1])
@@ -371,11 +375,16 @@ def analysisDay(item, date):
         plt.plot(datetimestamp, dateSSinst)
         plt.plot(datetimestamp, dateconsumption)
         plt.plot(datetimestamp, dategeneration)
+        if type(item) == md.Apartment:
+            dateenergyreceived = item.energyreceived[indexes[0]:indexes[-1]]
+            plt.plot(datetimestamp, dateenergyreceived)
+            
         plt.xlabel("Samples")
         plt.ylabel("Instantaneous energy in kWh")
         
         print("\n# The self-consumption for that period was %.2f and the self-sufficiency was %.2f\n\n" %(dateSC*100, dateSS*100))
         return datetimestamp, dateconsumption, dategeneration, dateSC, dateSCinst, dateSS, dateSSinst
+
 
 #%% Defining a DEMO function to quickly run the system's tests
 
@@ -393,7 +402,7 @@ def Demo(inverters, invlist, aptlist):
                 
     print("""\n\n### Starting DEMO for ECN Model - Herman Smart Grid Project ###\n\n
           mode selected: """ + mode + "\n\n")
-    plt.close("all")
+    #plt.close("all")
     maxinv, mininv, maxinvgen, mininvgen, maxap, minap, maxapgen, minapgen, maxapp, minapp = minmaxAnalysis(inverters, invlist, aptlist, "hide")
     
     if mode == "system":

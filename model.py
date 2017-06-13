@@ -39,7 +39,7 @@ class Inverter:
     def __init__(self, filename, apartments, channels):
         self.ID = filename[-4:]
         self.apartments = self.setApartments(filename, apartments, channels)
-        self.generation, self.consumption, self.timestamp = self.inverterBundle()
+        self.consumption, self.generation, self.consumption_perAp, self.generation_perAp, self.apartmentlist, self.timestamp = self.inverterBundle()
         self.selfCinst = selfConsumptionInst(self.consumption, self.generation, self.timestamp)
         self.selfC = selfConsumption(self.consumption, self.generation, self.timestamp)
         self.selfSinst = selfSufficiencyInst(self.consumption, self.generation, self.timestamp)
@@ -62,8 +62,8 @@ class Inverter:
         consumption = self.apartments[0].consumption
         timestamp = self.invAllTimestamps()
         for i in range(len(self.apartments)-1):
-            consumption, generation = self.invSetTimestampData(timestamp)
-        return generation, consumption, timestamp
+            consumption, generation, consumption_perAp, generation_perAp, apartmentlist = self.invSetTimestampData(timestamp)
+        return consumption, generation, consumption_perAp, generation_perAp, apartmentlist, timestamp
 
     #Auxiliary functions  
     #A function to obtain all of the system's timestamps that occur in at least one apartment - used in inverterBundle()           
@@ -80,22 +80,27 @@ class Inverter:
     def invSetTimestampData(self, alltimestamps):
         #creating list of lists for each timestamp
         totalcons = []; totalgen = []
-        
+        consAp = []; genAp = []
+        apartmentlist = []
         #running through all timestamps:
         for i in range(len(alltimestamps)):
             timestamp = alltimestamps[i]
-            cons = []; gen = []
+            cons = []; gen = []; aplist = []
             for k in range(len(self.apartments)):
                 #searching all apartments for the timestamp in question      
                 index = binarySearchII(self.apartments[k].timestamp, timestamp)
                 if index > -1:                                                  #If the item was found in the list
                     cons.append(self.apartments[k].consumption[index])
                     gen.append(self.apartments[k].generation[index])
+                    aplist.append(self.apartments[k].ID)
             #appending the lists for the timestamps in the list of lists            
             totalcons.append(sum(cons))
+            consAp.append(cons)
             totalgen.append(sum(gen))
-        
-        return totalcons, totalgen
+            genAp.append(gen)
+            apartmentlist.append(aplist)
+            
+        return totalcons, totalgen, consAp, genAp, apartmentlist
 
 #%% Apartment
 #Class apartment for creating apartment entities to be controlled and modeled better
@@ -125,6 +130,7 @@ class Apartment:
         self.selfSinst = selfSufficiencyInst(self.consumption, self.generation, self.timestamp)
         self.selfS = selfSufficiency(self.consumption, self.generation, self.timestamp)
 
+        
      #### FUNCTIONS ####   
         
     #setting its timestamp as datetime object instead of pandas.Series of strings
@@ -179,11 +185,18 @@ class Appliance(object):
     
     #The appliances are initialized with their consumption data and ID
     def __init__(self, apartdata, i, apID):
+        self.timestamp = self.setTimestamp(apartdata['time'])
         self.consumption = np.nan_to_num(apartdata[apartdata.columns[2+i]])
         self.ID = apartdata.columns[2+i] + apID
         self.apt = apID     
           
-                 
+        #setting its timestamp as datetime object instead of pandas.Series of strings
+    def setTimestamp(self, timestampseries):
+        self.timestamp = []
+        for i in range(len(timestampseries)):
+            self.timestamp.append(datetime.strptime(timestampseries[i][0:19], "%Y-%m-%d %H:%M:%S"))
+        return self.timestamp
+    
 #%% Battery
 #Class battery for the energy storage studies - first iteration of it at least
 class Battery(object):
@@ -193,9 +206,10 @@ class Battery(object):
     #their charge status and amount of energy stored per timestamp
     def __init__(self, connectedto, capacity):
         self.ID = "battery" + connectedto.ID
+        self.connectedto = connectedto
         self.capacity = capacity
-        self.cRate = 1.25                                                       #for the Tesla Powerwall 2
-        self.depthDisch = 1 - 0.0*self.capacity
+        self.cRate = 0.5                                            
+        self.depthDisch = self.capacity - 0.8*self.capacity                     #20% discharge depth
         self.efficiency = 0.90
         self.chargeArray = self.chargeArray(connectedto)
         self.chargeStatus = self.chargeStatus(connectedto)
@@ -370,6 +384,41 @@ def setSunperiod(timestamp):
             sunperiod[i] = 1
     return sunperiod
 
+
+
+
+
+#Function to create all the data for all the timestamps - here just as a placeholder; need to find the best spot to create it though
+#
+
+
+def equality(inverters):
+    """Function to put all our entities in the same timestamp values. If there is missing data, we just put it to 0"""
+    for i in inverters:
+        for ap in i.apartments:
+            ap.timestamp = i.timestamp[:]
+            ap.consumption = i.consumption[:]
+            ap.generation = i.generation[:]
+            for j in range(len(i.timestamp)):
+                if ap.ID in i.apartmentlist[j]:
+                    ap.consumption[j] = i.consumption_perAp[j][i.apartmentlist[j].index(ap.ID)]
+                    ap.generation[j] = i.generation_perAp[j][i.apartmentlist[j].index(ap.ID)]
+                else:
+                    ap.consumption[j] = 0
+                    ap.generation[j] = 0
+            #for the appliances
+            for app in ap.appliances:
+                cons = []
+                app.timestamp_new = i.timestamp
+                for k in range(len(i.timestamp)):
+                    time = i.timestamp[k]
+                    index = binarySearchII(app.timestamp, time)
+                    if index > -1:
+                        cons.append(app.consumption[index])
+                    else:
+                        cons.append(0)
+                app.consumption = np.array(cons)
+                app.timestamp = app.timestamp_new
 
 #Creating a function to save and load the inverter file
 def saveLoad(inverters, opt):

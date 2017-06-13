@@ -7,7 +7,7 @@ File to give in the printing statements for the Analysis function. This is just 
 This file is a bunch of strings and plots - nobody should see this! It is just a "warehouse" (a messy one) for the Analysis functions.
 """
 import matplotlib.pyplot as plt
-
+import numpy as np
 
 def getPrint_inv(mode, item, systeminfo, itemconsumption, itemgeneration, maxapartmentcons, maxapartmentgen):
     """Printing for the Analysis function for Inverters"""
@@ -67,8 +67,9 @@ def getPrint_inv(mode, item, systeminfo, itemconsumption, itemgeneration, maxapa
 
     elif mode == "info":
         print(info)
+
+    
         
-     
 def getPrint_apt(mode, item, systeminfo, itemconsumption, itemgeneration, maxappliancecons):
     """Printing for Analysis function for Apartments"""
 
