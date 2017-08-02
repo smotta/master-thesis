@@ -39,11 +39,11 @@ class Inverter:
     def __init__(self, filename, apartments, channels):
         self.ID = filename[-4:]
         self.apartments = self.setApartments(filename, apartments, channels)
-        self.generation, self.consumption, self.timestamp = self.inverterBundle()
-        self.selfCinst = selfConsumptionInst(self.consumption, self.generation, self.timestamp)
-        self.selfC = selfConsumption(self.consumption, self.generation, self.timestamp)
-        self.selfSinst = selfSufficiencyInst(self.consumption, self.generation, self.timestamp)
-        self.selfS = selfSufficiency(self.consumption, self.generation, self.timestamp)
+        self.consumption, self.generation, self.consumption_perAp, self.generation_perAp, self.apartmentlist, self.timestamp = self.inverterBundle()
+        self.selfCinst = selfConsumptionInst(self.consumption, self.generation, self.timestamp, self)
+        self.selfC = selfConsumption(self.consumption, self.generation, self.timestamp, self)
+        self.selfSinst = selfSufficiencyInst(self.consumption, self.generation, self.timestamp, self)
+        self.selfS = selfSufficiency(self.consumption, self.generation, self.timestamp, self)
                                           
     #### FUNCTIONS ####   
     
@@ -62,8 +62,8 @@ class Inverter:
         consumption = self.apartments[0].consumption
         timestamp = self.invAllTimestamps()
         for i in range(len(self.apartments)-1):
-            consumption, generation = self.invSetTimestampData(timestamp)
-        return generation, consumption, timestamp
+            consumption, generation, consumption_perAp, generation_perAp, apartmentlist = self.invSetTimestampData(timestamp)
+        return consumption, generation, consumption_perAp, generation_perAp, apartmentlist, timestamp
 
     #Auxiliary functions  
     #A function to obtain all of the system's timestamps that occur in at least one apartment - used in inverterBundle()           
@@ -80,22 +80,31 @@ class Inverter:
     def invSetTimestampData(self, alltimestamps):
         #creating list of lists for each timestamp
         totalcons = []; totalgen = []
-        
+        consAp = []; genAp = []
+        apartmentlist = []
         #running through all timestamps:
         for i in range(len(alltimestamps)):
             timestamp = alltimestamps[i]
-            cons = []; gen = []
+            cons = []; gen = []; aplist = []
             for k in range(len(self.apartments)):
                 #searching all apartments for the timestamp in question      
                 index = binarySearchII(self.apartments[k].timestamp, timestamp)
                 if index > -1:                                                  #If the item was found in the list
                     cons.append(self.apartments[k].consumption[index])
                     gen.append(self.apartments[k].generation[index])
+                    aplist.append(self.apartments[k].ID)
+                else:
+                    cons.append(0)
+                    gen.append(0)
+                    aplist.append(self.apartments[k].ID)
             #appending the lists for the timestamps in the list of lists            
             totalcons.append(sum(cons))
+            consAp.append(cons)
             totalgen.append(sum(gen))
-        
-        return totalcons, totalgen
+            genAp.append(gen)
+            apartmentlist.append(aplist)
+            
+        return totalcons, totalgen, consAp, genAp, apartmentlist
 
 #%% Apartment
 #Class apartment for creating apartment entities to be controlled and modeled better
@@ -115,16 +124,22 @@ class Apartment:
         self.feedin = np.nan_to_num(self.apartdata['gridfeedin'])
         self.pv_se = np.nan_to_num(self.apartdata['pv_se'])
         self.pv_herman = np.nan_to_num(self.apartdata['pv_herman'])
+        
+        #cutting data after 05/07/2017
+        if "tki-data-20170711" in filename:
+            self.timestamp, self.griduse, self.consumption, self.feedin, self.pv_se, self.pv_herman = self.cutData()
+        
         self.generation = self.setGeneration()
         self.consumption = self.setConsumptionFeedIn()                          #Considering the grid feed-in in the generation
         self.numbappliances = len(self.apartdata.columns)-5                     #time, gridfeedin, griduse, pv_se and pv_herman are disconsidered, the rest are appliances
         self.appliances = self.setAppliances()
         self.appliancecons, self.applianceconspercent = self.appConsumption()
-        self.selfCinst = selfConsumptionInst(self.consumption, self.generation, self.timestamp)
-        self.selfC = selfConsumption(self.consumption, self.generation, self.timestamp)
-        self.selfSinst = selfSufficiencyInst(self.consumption, self.generation, self.timestamp)
-        self.selfS = selfSufficiency(self.consumption, self.generation, self.timestamp)
+        self.selfCinst = selfConsumptionInst(self.consumption, self.generation, self.timestamp, self)
+        self.selfC = selfConsumption(self.consumption, self.generation, self.timestamp, self)
+        self.selfSinst = selfSufficiencyInst(self.consumption, self.generation, self.timestamp, self)
+        self.selfS = selfSufficiency(self.consumption, self.generation, self.timestamp, self)
 
+        
      #### FUNCTIONS ####   
         
     #setting its timestamp as datetime object instead of pandas.Series of strings
@@ -153,7 +168,7 @@ class Apartment:
     def setAppliances(self):
         self.appliances = []
         for i in range(1, self.numbappliances+1):
-            self.appliances.append(Appliance(self.apartdata, i, self.ID))
+            self.appliances.append(Appliance(self.timestamp, self.apartdata, i, self.ID))
         return self.appliances
         
     #defining the apartment's consumption for all the monitored appliances (different from the total consumption as there are other unmonitored appliances)
@@ -162,7 +177,7 @@ class Apartment:
         self.appliancearray = np.array(self.apartdata[self.apartdata.columns[3:applend]])
         self.appliancecons = np.ones(len(self.appliancearray))
         self.applianceconspercent = np.ones(len(self.appliancearray))
-        for i in range(len(self.appliancearray)):
+        for i in range(len(self.timestamp)):
             self.appliancecons[i] = sum(self.appliancearray[i])
             if self.consumption[i] < 0.0005:
                 self.applianceconspercent[i] = 0
@@ -171,19 +186,46 @@ class Apartment:
         return self.appliancecons, self.applianceconspercent
 
 
+    #cutting down bad data from 05/07/2017 - added on 17/07
+    def cutData(self):
+        datelimit = datetime(2017, 7, 4, 23, 45)
+        index = self.timestamp.index(self.nearest(self.timestamp, datelimit)) + 1
+        timestamp = self.timestamp[:index]
+        griduse = self.griduse[:index]
+        consumption = self.consumption[:index]
+        feedin = self.feedin[:index]
+        pv_se = self.pv_se[:index]
+        pv_herman = self.pv_herman[:index]
 
+        return timestamp, griduse, consumption, feedin, pv_se, pv_herman
+    
+    
+    #getting the nearest date as implemented in https://stackoverflow.com/questions/32237862/find-the-closest-date-to-a-given-date
+    def nearest(self, items, pivot):
+        return min(items, key=lambda x: abs(x - pivot))
+    
+    
+    
+    
 #%% Appliance
 #Class appliance for making it easier to control and monitor each appliance individually
 class Appliance(object):
     """Appliance class, connected to Apartment and main consumer"""
     
     #The appliances are initialized with their consumption data and ID
-    def __init__(self, apartdata, i, apID):
+    def __init__(self, timestamp, apartdata, i, apID):
+        self.timestamp = timestamp #self.setTimestamp(apartdata['time'])
         self.consumption = np.nan_to_num(apartdata[apartdata.columns[2+i]])
         self.ID = apartdata.columns[2+i] + apID
         self.apt = apID     
           
-                 
+        #setting its timestamp as datetime object instead of pandas.Series of strings
+    def setTimestamp(self, timestampseries):
+        self.timestamp = []
+        for i in range(len(timestampseries)):
+            self.timestamp.append(datetime.strptime(timestampseries[i][0:19], "%Y-%m-%d %H:%M:%S"))
+        return self.timestamp
+    
 #%% Battery
 #Class battery for the energy storage studies - first iteration of it at least
 class Battery(object):
@@ -191,12 +233,13 @@ class Battery(object):
     
     #The batteries are initialized with their ID, capacity, charging rate, depth of discharge and efficiency, and have calculated
     #their charge status and amount of energy stored per timestamp
-    def __init__(self, connectedto, capacity):
+    def __init__(self, connectedto, capacity, cRate):
         self.ID = "battery" + connectedto.ID
+        self.connectedto = connectedto
         self.capacity = capacity
-        self.cRate = 1.25                                                       #for the Tesla Powerwall 2
-        self.depthDisch = 1 - 0.0*self.capacity
-        self.efficiency = 0.90
+        self.cRate = cRate                                            
+        self.depthDisch = self.capacity - 0.8*self.capacity                     #20% discharge depth
+        self.efficiency = 0.96
         self.chargeArray = self.chargeArray(connectedto)
         self.chargeStatus = self.chargeStatus(connectedto)
         
@@ -232,26 +275,31 @@ class Battery(object):
 #These functions perform core taks and calculations, such as self-consumption and statistical analysis
 
 #calculating self-consumption as an integral
-def selfConsumption(demand, generation, timestamp):
-    
+#def selfConsumption(demand, generation, timestamp, battery=None):
+def selfConsumption(demand, generation, timestamp, item, battery="None"):
+    #creating a mock battery for calculation when there is no battery connected to the system
+    if type(battery) == str:
+        battery = Battery(item, 0, 0)
     sunperiod = setSunperiod(timestamp)
     #sunperiod = np.ones(len(timestamp))
     minimum = np.zeros(len(demand))
     for i in range(len(minimum)):
-        if sunperiod[i] == 1:
+        if sunperiod[i] == 1 or (battery.chargeStatus[i] > battery.depthDisch):
             minimum[i] = min(demand[i], generation[i])
     selfconsumption = np.trapz(minimum)/np.trapz(generation)
     return selfconsumption
 
 #calculating self-consumption as an instantaneous value per timestamp
-def selfConsumptionInst(demand, generation, timestamp):
-    
+def selfConsumptionInst(demand, generation, timestamp, item, battery="None"):
+    #creating a mock battery for calculation when there is no battery connected to the system
+    if type(battery) == str:
+        battery = Battery(item, 0, 0)
     sunperiod = setSunperiod(timestamp)
     #sunperiod = np.ones(len(timestamp))  
     minimum = np.zeros(len(demand))
     selfConsumptionInst = np.zeros(len(demand))
     for i in range(len(minimum)):
-        if sunperiod[i] == 1:
+        if sunperiod[i] == 1 or battery.chargeStatus[i] > battery.depthDisch:
             minimum[i] = min(demand[i], generation[i])
             if generation[i] == 0:
                 selfConsumptionInst[i] = 0
@@ -260,25 +308,30 @@ def selfConsumptionInst(demand, generation, timestamp):
     return selfConsumptionInst
     
 #calculating self-sufficiency as an integral
-def selfSufficiency(demand, generation, timestamp):
-    
+def selfSufficiency(demand, generation, timestamp, item, battery="None"):
+    #creating a mock battery for calculation when there is no battery connected to the system
+    if type(battery) == str:
+        battery = Battery(item, 0, 0)
     sunperiod = setSunperiod(timestamp)  
     #sunperiod = np.ones(len(timestamp))
     minimum = np.zeros(len(demand))
     for i in range(len(minimum)):
-        if sunperiod[i] == 1:
+        if sunperiod[i] == 1 or battery.chargeStatus[i] > battery.depthDisch:
             minimum[i] = min(demand[i], generation[i])
     selfsufficiency = np.trapz(minimum)/np.trapz(demand)
     return selfsufficiency
 
 #calculating self-sufficiency as an instantaneous value per timestamp
-def selfSufficiencyInst(demand, generation, timestamp):
+def selfSufficiencyInst(demand, generation, timestamp, item, battery="None"):
+    #creating a mock battery for calculation when there is no battery connected to the system
+    if type(battery) == str:
+        battery = Battery(item, 0, 0)
     sunperiod = setSunperiod(timestamp)
     #sunperiod = np.ones(len(timestamp))
     minimum = np.zeros(len(demand))
     selfSufficiencyInst = np.zeros(len(demand))
     for i in range(len(minimum)):
-        if sunperiod[i] == 1:
+        if sunperiod[i] == 1 or battery.chargeStatus[i] > battery.depthDisch:
             minimum[i] = min(demand[i], generation[i])
             if demand[i] == 0:
                 selfSufficiencyInst[i] = 1
@@ -343,7 +396,7 @@ def totalSystemValues(lista):
     for i in range(len(lista)):
         cons += sum(lista[i].consumption)
         gen += sum(lista[i].generation)
-    return cons/4, gen/4                                                        #Here a division by 4 as the data is given in kWh values in 15 minutes intervals. This means that to average it out, a division has to be performed.
+    return cons, gen                                                        
 
 #Creating a function to set the sunrise and sunset to filter generation noise
 #It uses the code from sunrise.py to do so, therefore the file is necessary.
@@ -371,13 +424,154 @@ def setSunperiod(timestamp):
     return sunperiod
 
 
+
+
+
+#Function to create all the data for all the timestamps - here just as a placeholder; need to find the best spot to create it though
+def equality(inverters):
+    """Function to put all our entities in the same timestamp values. If there is missing data, we just put it to 0"""
+    
+    #setting all inverters' timestamps to be the same
+    alltimestamps = allTimestamps(inverters)
+    for i in inverters:
+        cons = []; gen = []; aptlist = []; consperAp = []; genperAp = []
+        for j in range(len(alltimestamps)):
+            time = alltimestamps[j]
+            index = binarySearchII(i.timestamp, time)
+            if index > -1:
+                cons.append(i.consumption[index])
+                gen.append(i.generation[index])
+                aptlist.append(i.apartmentlist[index])
+                consperAp.append(i.consumption_perAp[index])
+                genperAp.append(i.generation_perAp[index])
+            else:
+                cons.append(0)
+                gen.append(0)
+                aptlist.append([0])
+                consperAp.append([0])
+                genperAp.append([0])
+                
+        i.consumption = np.array(cons)
+        i.generation = np.array(gen)
+        i.apartmentlist = aptlist
+        i.consumption_perAp = consperAp
+        i.generation_perAp = genperAp
+        
+        i.timestamp = alltimestamps
+       
+    #setting all apartments' and appliances' timestamps to be the same as the inverters:
+    for i in inverters:
+        for ap in i.apartments:
+            fillMissingTimes_ap(i.timestamp, ap)
+            #for the appliances
+            for app in ap.appliances:
+                cons = []
+                app.timestamp_new = i.timestamp
+                for k in range(len(i.timestamp)):
+                    time = i.timestamp[k]
+                    index = binarySearchII(app.timestamp, time)
+                    if index > -1:
+                        cons.append(app.consumption[index])
+                    else:
+                        cons.append(0)
+                app.consumption = np.array(cons)
+                app.timestamp = app.timestamp_new
+            
+            
+#            
+#            
+#            ap.timestamp = i.timestamp[:]
+#            ap.consumption = np.zeros_like(i.consumption)
+#            ap.generation = np.zeros_like(i.generation)
+#            ap.newfeedin = np.zeros_like(ap.timestamp)
+#            ap.newgriduse = np.zeros_like(ap.griduse)
+#            for j in range(len(i.timestamp)):
+#                if ap.ID in i.apartmentlist[j]:
+#                    ap.consumption[j] = i.consumption_perAp[j][i.apartmentlist[j].index(ap.ID)]
+#                    ap.generation[j] = i.generation_perAp[j][i.apartmentlist[j].index(ap.ID)]
+#                else:
+#                    ap.consumption[j] = 0
+#                    ap.generation[j] = 0
+
+
+
+
+#function to fill missing timestamps and equalizing every element
+
+def fillMissingTimes_ap(alltimestamps, apartment):
+    """Function to fill all missing timestamps with zero while keeping the existant timestamps in place"""
+    
+    cons = []; gen = []; feedin = []; griduse = []
+    for k in range(len(alltimestamps)):
+        time = alltimestamps[k]
+        index = binarySearchII(apartment.timestamp, time)
+        if index > -1:
+            cons.append(apartment.consumption[index])
+            gen.append(apartment.generation[index])
+            feedin.append(apartment.feedin[index])
+            griduse.append(apartment.griduse[index])
+        else:
+            cons.append(0)
+            gen.append(0)
+            feedin.append(0)
+            griduse.append(0)  
+    apartment.consumption = cons
+    apartment.generation = gen
+    apartment.feedin = feedin
+    apartment.griduse = griduse
+    apartment.timestamp = alltimestamps
+    #recalculating self-consumption and self-sufficiency
+    apartment.selfCinst = selfConsumptionInst(cons, gen, alltimestamps, apartment)
+    apartment.selfC = selfConsumption(cons, gen, alltimestamps, apartment)
+    apartment.selfSinst = selfSufficiencyInst(cons, gen, alltimestamps, apartment)
+    apartment.selfS = selfSufficiency(cons, gen, alltimestamps, apartment)
+    
+    
+
+
+#A function to obtain all of the system's timestamps that occur in at least one apartment           
+def allTimestamps(inv):
+    """Function to extract all timestamps that occur at least once for one apartment in the whole system"""
+    lista = []
+    for i in range(len(inv)):
+        for j in range(len(inv[i].apartments)):
+            lista = sorted(lista + inv[i].apartments[j].timestamp)
+            #With this command, we append all timestamps in the system
+    alltimestamps = sorted(list(set(lista))) #and then we remove the duplicates
+    return alltimestamps
+
+#Function to normalize energy generation per inverter - remove 0 generation on inverters while others have solar power
+
+def invgeneration(inverters):
+    """Function to assess the missing generation data for some inverters"""
+    
+    for time in range(len(inverters[0].timestamp)):
+        invgen = []
+        for inv in range(len(inverters)):
+            invgen.append(inverters[inv].generation[time])
+        if sum(invgen) > 0.01:
+            missingen = [i for i,x in enumerate(invgen) if x < 0.001]              #getting the indexes where there is missing generation
+            havegen = [i for i, x in enumerate(invgen) if x > 0.001]               #getting the indexes where the generation is there
+            genvalues = [invgen[i] for i in havegen]                            #getting the values of the generation that is present
+            for i in missingen:
+                inverters[i].generation[time] = inverters[invgen.index(min(genvalues))].generation[time]
+    
+    
+
+
+
+
+
+
+
+
 #Creating a function to save and load the inverter file
-def saveLoad(inverters, opt):
+def saveLoad(inverters, file, opt):
     if opt == "save":
-        with open('inverter.pickle', 'wb') as f:
+        with open(file, 'wb') as f:
             pickle.dump(inverters, f)
     elif opt == "load":
-        with open('inverter.pickle', 'rb') as f:
+        with open(file, 'rb') as f:
             return pickle.load(f)
     else:
         print("No valid option")

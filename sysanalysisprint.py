@@ -7,7 +7,7 @@ File to give in the printing statements for the Analysis function. This is just 
 This file is a bunch of strings and plots - nobody should see this! It is just a "warehouse" (a messy one) for the Analysis functions.
 """
 import matplotlib.pyplot as plt
-
+import numpy as np
 
 def getPrint_inv(mode, item, systeminfo, itemconsumption, itemgeneration, maxapartmentcons, maxapartmentgen):
     """Printing for the Analysis function for Inverters"""
@@ -34,18 +34,18 @@ def getPrint_inv(mode, item, systeminfo, itemconsumption, itemgeneration, maxapa
         
         plt.figure()
         plt.ylabel('Instantaneous consumption (kWh)')
-        plt.xlabel('samples')
+        plt.xlabel("Time (timestamp)")
         plt.title('Total Consumption of Inverter ' + item.ID + " and apartments")
-        itemplt, = plt.plot(item.timestamp, item.consumption, label="Inverter consumption")
+        itemplt, = plt.plot(item.timestamp[7104:7104+96], item.consumption[7104:7104+96], label="Inverter consumption")
         handllist = [itemplt]
         for i in range(len(item.apartments)):
-            subitemplt, = plt.plot(item.apartments[i].timestamp, item.apartments[i].consumption, label="Apartment " + item.apartments[i].ID + " consumption")
+            subitemplt, = plt.plot(item.apartments[i].timestamp[7104:7104+96], item.apartments[i].consumption, label="Apartment " + item.apartments[i].ID + " consumption")
             handllist.append(subitemplt)
         plt.legend(handles = handllist)
         
         plt.figure()
         plt.ylabel("Instantaneous Generation (kWh)")
-        plt.xlabel("Samples")
+        plt.xlabel("Time (timestamp)")
         plt.title("Total Generation - sum of all apartments connected to Inverter " + item.ID)
         itemplt, = plt.plot(item.timestamp, item.generation, label="Inverter generation")
         handllist = [itemplt]
@@ -57,7 +57,7 @@ def getPrint_inv(mode, item, systeminfo, itemconsumption, itemgeneration, maxapa
         
         plt.figure()
         plt.title("Self-consumption and self-sufficiency of Inverter " + item.ID)
-        plt.xlabel("Samples")
+        plt.xlabel("Time (timestamp)")
         plt.ylabel("Self-consumption and self-sufficiency as percent")
         plt1, = plt.plot(item.timestamp, item.selfCinst, label="Inverter self consumption")
         plt2, = plt.plot(item.timestamp, item.selfSinst, label="Inverter self sufficiency")
@@ -67,8 +67,9 @@ def getPrint_inv(mode, item, systeminfo, itemconsumption, itemgeneration, maxapa
 
     elif mode == "info":
         print(info)
+
+    
         
-     
 def getPrint_apt(mode, item, systeminfo, itemconsumption, itemgeneration, maxappliancecons):
     """Printing for Analysis function for Apartments"""
 
@@ -96,7 +97,7 @@ def getPrint_apt(mode, item, systeminfo, itemconsumption, itemgeneration, maxapp
         print(info)
         plt.figure()
         plt.ylabel('Instantaneous consumption (kWh)')
-        plt.xlabel('samples')
+        plt.xlabel("Time (timestamp)")
         plt.title('Total Consumption of Apartment ' + item.ID + " and appliances")
         itemplt, = plt.plot(item.timestamp, item.consumption, label="Apartment Consumption")
         handllist = [itemplt]
@@ -107,14 +108,14 @@ def getPrint_apt(mode, item, systeminfo, itemconsumption, itemgeneration, maxapp
         
         plt.figure()
         plt.ylabel("Instantaneous Generation (kWh)")
-        plt.xlabel("Samples")
+        plt.xlabel("Time (timestamp)")
         plt.title("Total Generation associated with Apartment " + item.ID)
         itemplt, = plt.plot(item.timestamp, item.generation, label="Apartment associated generation")
         plt.legend(handles = [itemplt])
         
         plt.figure()
         plt.title("Self-consumption and self-sufficiency of Apartment " + item.ID)
-        plt.xlabel("Samples")
+        plt.xlabel("Time (timestamp)")
         plt.ylabel("Self-consumption and self-sufficiency as percent")
         plt1, = plt.plot(item.timestamp, item.selfCinst, label="Apartment self consumption")
         plt2, = plt.plot(item.timestamp, item.selfSinst, label="Apartment self sufficiency")
@@ -140,7 +141,7 @@ def getPrint_app(mode, item, systeminfo, itemconsumption, inv, aptlist):
         print(info)
         plt.figure()
         plt.ylabel('Instantaneous consumption (kWh)')
-        plt.xlabel('samples')
+        plt.xlabel("Time (timestamp)")
         plt.title('Total Consumption of Appliance ' + item.ID + ' versus the consumption of Apartment ' + item.apt)
         plt1, = plt.plot(inv[aptlist[item.apt][0]].apartments[aptlist[item.apt][1]].timestamp, inv[aptlist[item.apt][0]].apartments[aptlist[item.apt][1]].consumption, label="Apartment "+ inv[aptlist[item.apt][0]].apartments[aptlist[item.apt][1]].ID + " total consumption")
         plt2, = plt.plot(inv[aptlist[item.apt][0]].apartments[aptlist[item.apt][1]].timestamp, item.consumption, label="Appliance " + item.ID + " consumption")           

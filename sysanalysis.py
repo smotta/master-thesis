@@ -14,11 +14,14 @@ import model as md
 import connection as cn
 import matplotlib.pyplot as plt
 import sysanalysisprint as sap
+from matplotlib.ticker import MaxNLocator
 
 
-####THIS IS AN EDIT FOR GITHUB!!!
 
 
+
+#%% ###########################################################################
+""" FUNCTIONS FOR THE SYSTEM ANALYSIS AS IS - NO SWITCHING ANALYZED """
 #%% Analysis function
 
 #A generic analysis function that receives an object as an input and returns a thorough analysis of it, with plots and relevant information.
@@ -30,19 +33,19 @@ def Analysis(item, inv, invlist, aptlist, mode):
     systeminfo[0], systeminfo[1] = md.totalSystemValues(inv)
     
     if type(item) == md.Inverter:
-        itemconsumption = sum(item.consumption)/4
-        itemgeneration = sum(item.generation)/4
+        itemconsumption = sum(item.consumption)
+        itemgeneration = sum(item.generation)
         
         #Calculate the consumption of all apartments connected to this inverter and find what is the maximum
         apartmentconsumption = []
         for i in range(len(item.apartments)):
-            apartmentconsumption.append(sum(item.apartments[i].consumption)/4)
+            apartmentconsumption.append(sum(item.apartments[i].consumption))
         maxapartmentcons = item.apartments[apartmentconsumption.index(max(apartmentconsumption))]
         
         #Calculate the generation of all apartments connected to this inverter and find what is the maximum
         apartmentgeneration = []
         for i in range(len(item.apartments)):
-            apartmentgeneration.append(sum(item.apartments[i].generation)/4)
+            apartmentgeneration.append(sum(item.apartments[i].generation))
         maxapartmentgen = item.apartments[apartmentgeneration.index(max(apartmentgeneration))]        
        
         #Printing the information
@@ -54,11 +57,11 @@ def Analysis(item, inv, invlist, aptlist, mode):
     elif type(item) == md.Apartment:
         
         #calculating the inverter's consumption
-        systeminfo[2] = sum(cn.inverters(item.inv, inv, invlist).consumption)/4
-        systeminfo[3] = sum(cn.inverters(item.inv, inv, invlist).generation)/4
+        systeminfo[2] = sum(cn.inverters(item.inv, inv, invlist).consumption)
+        systeminfo[3] = sum(cn.inverters(item.inv, inv, invlist).generation)
         
-        itemconsumption = sum(item.consumption)/4
-        itemgeneration = sum(item.generation)/4
+        itemconsumption = sum(item.consumption)
+        itemgeneration = sum(item.generation)
 
                 
         #Calculate the consumption of all appliances connected to this apartment and find what is the maximum
@@ -66,7 +69,7 @@ def Analysis(item, inv, invlist, aptlist, mode):
         
         if len(item.appliances) > 0:
             for i in range(len(item.appliances)):
-                applianceconsumption.append(sum(item.appliances[i].consumption)/4)
+                applianceconsumption.append(sum(item.appliances[i].consumption))
             maxappliancecons = item.appliances[applianceconsumption.index(max(applianceconsumption))]
         else:
             maxappliancecons = 0
@@ -78,9 +81,9 @@ def Analysis(item, inv, invlist, aptlist, mode):
        
     elif type(item) == md.Appliance:
         #calculating the apartment's information:
-        systeminfo[4] = sum(cn.apartments(item.apt, inv, aptlist).consumption)/4
+        systeminfo[4] = sum(cn.apartments(item.apt, inv, aptlist).consumption)
         
-        itemconsumption = sum(item.consumption)/4
+        itemconsumption = sum(item.consumption)
 
         #Printing the information
         sap.getPrint_app(mode, item, systeminfo, itemconsumption, inv, aptlist)
@@ -154,7 +157,7 @@ def minmaxAnalysis(inverters, invlist, aptlist, show):
     minapp = app_id[app_idxmin]
     
     #Printing the information
-    sap.getPrint_minmax(show, inv_cons, inv_gen, maxinv, maxinvgen, mininv, mininvgen, apt_cons, apt_gen, maxap, minap, minapgen, maxapgen, app_cons, maxapp, minapp)
+    sap.getPrint_minmax(show, inv_cons, inv_gen, maxinv, maxinvgen, mininv, mininvgen, apt_cons, apt_gen, minap, maxap, minapgen, maxapgen, app_cons, maxapp, minapp)
     
     return maxinv, mininv, maxinvgen, mininvgen, maxap, minap, maxapgen, minapgen, maxapp, minapp
     #Returns a list of the IDs of the min/max appliances
@@ -196,7 +199,7 @@ def sysAnalysisAvg(inv, invlist, aptlist):
     #Printing the consumption data
     plt.figure()
     plt.ylabel("Instantaneous Consumption (kWh)")
-    plt.xlabel("Samples")
+    plt.xlabel("Time (timestamp)")
     plt.title("Average consumption of apartment versus highest and lowest consuming apartments")
     plt1, = plt.plot(cn.apartments(maxap, inv, aptlist).timestamp, cn.apartments(maxap, inv, aptlist).consumption, 'r--', label="Maximum consumption apartment " + cn.apartments(maxap, inv, aptlist).ID)
     plt2, = plt.plot(cn.apartments(minap, inv, aptlist).timestamp, cn.apartments(minap, inv, aptlist).consumption, 'g--', label="Minimum consumption apartment " + cn.apartments(minap, inv, aptlist).ID)
@@ -207,7 +210,7 @@ def sysAnalysisAvg(inv, invlist, aptlist):
     #Printing the generation data
     plt.figure()
     plt.ylabel("Instantaneous Generation (kWh)")
-    plt.xlabel("Samples")
+    plt.xlabel("Time (timestamp)")
     plt.title("Average generation of all apartments versus highest and lowest generation for apartments")
     plt1, = plt.plot(cn.apartments(maxapgen, inv, aptlist).timestamp, cn.apartments(maxapgen, inv, aptlist).consumption, 'r--', label="Maximum generation apartment " + cn.apartments(maxapgen, inv, aptlist).ID)
     plt2, = plt.plot(cn.apartments(minapgen, inv, aptlist).timestamp, cn.apartments(minapgen, inv, aptlist).consumption, 'g--', label="Minimum generation apartment " + cn.apartments(minapgen, inv, aptlist).ID)
@@ -232,18 +235,18 @@ def pilotAnalysis(inverters):
         generation[i] = sum(allgeneration[i])   
     
     #Calculating the full system self-consumption and self-sufficiency
-    selfC = md.selfConsumption(consumption, generation, timestamp)
-    selfS = md.selfSufficiency(consumption, generation, timestamp)
-    selfCinst = md.selfConsumptionInst(consumption, generation, timestamp)
-    selfSinst = md.selfSufficiencyInst(consumption, generation, timestamp)
+    selfC = md.selfConsumption(consumption, generation, timestamp, item=inverters[0])
+    selfS = md.selfSufficiency(consumption, generation, timestamp, item=inverters[0])
+    selfCinst = md.selfConsumptionInst(consumption, generation, timestamp, item=inverters[0])
+    selfSinst = md.selfSufficiencyInst(consumption, generation, timestamp, item=inverters[0])
     #Note: This gives how much the system would have as self-consumption and self-sufficiency if there was no switching - electricity would flow to
     #all the apartments at the same time. It is a rough estimate on the actual potention for this.
 
     #Plots for showing the whole system parameters
     plt.figure()
     plt.title("Self-consumption and self-sufficiency of the full Pilot")
-    plt.xlabel("Samples")
-    plt.ylabel("Self-consumption and self-sufficiency as percent")
+    plt.xlabel("Time (timestamp)")
+    plt.ylabel("Self-consumption and self-sufficiency (%)")
     plt1, = plt.plot(timestamp, selfCinst, label="System self consumption")
     plt2, = plt.plot(timestamp, selfSinst, label="System self sufficiency")
     plt3, = plt.plot(timestamp, consumption, label="System total consumption")
@@ -258,7 +261,8 @@ def pilotAnalysis(inverters):
     for i in range(len(inverters)):
         ax1 = fig.add_subplot((len(inverters)+1),1,i+2)
         ax1.plot(inverters[i].timestamp, inverters[i].consumption)
-    
+    plt.xlabel("Time (timestamp)")
+    plt.ylabel("Consumption (kWh)")
     
     plt.figure()
     plt.title("Total consumption versus inverter's")
@@ -268,7 +272,8 @@ def pilotAnalysis(inverters):
         handl1, = plt.plot(inverters[i].timestamp, inverters[i].consumption, label="Consumption for inverter " + inverters[i].ID)
         handl.append(handl1)
     plt.legend(handles=handl)
-    
+    plt.xlabel("Time (timestamp)")
+    plt.ylabel("Consumption (kWh)")
     
     
     #Generation 
@@ -276,10 +281,12 @@ def pilotAnalysis(inverters):
     plt.title("System generation")
     ax = fig.add_subplot(8,1,1)
     ax.plot(timestamp, generation)
+    plt.xlabel("Time (timestamp)")
+    plt.ylabel("Generation (kWh)")
     for i in range(len(inverters)):
         ax1 = fig.add_subplot(8,1,i+2)
         ax1.plot(inverters[i].timestamp, inverters[i].generation)
-    
+
     
     plt.figure()
     plt.title("Total generation versus inverter's")
@@ -289,7 +296,8 @@ def pilotAnalysis(inverters):
         handl1, = plt.plot(inverters[i].timestamp, inverters[i].generation, label="Generation for inverter " + inverters[i].ID)
         handl.append(handl1)
     plt.legend(handles=handl)
-
+    plt.xlabel("Time (timestamp)")
+    plt.ylabel("Generation (kWh)")
     #Printing the information:
     sap.getPrint_pilotAnalysis(consumption, generation, selfC, selfS)
     
@@ -308,8 +316,8 @@ def selfCselfS(inverters):
             somaC += i.apartments[j].selfC
             somaS += i.apartments[j].selfS
             #Printing the self-consumption and self-sufficiency for each individual apartment:
-            #print("Apartment " + i.apartments[j].ID + " self-consumption is %.2f" %(i.apartments[j].selfC*100))
-            #print("Apartment " + i.apartments[j].ID + " self-sufficiency is %.2f\n" %(i.apartments[j].selfS*100))
+            print("Apartment " + i.apartments[j].ID + " self-consumption is %.2f" %(i.apartments[j].selfC*100))
+            print("Apartment " + i.apartments[j].ID + " self-sufficiency is %.2f\n" %(i.apartments[j].selfS*100))
     
     print("Average self-consumption for all 38 apartments is %.2f \n" %(somaC/38 * 100))
     print("Average self-sufficiency for all 38 apartments is %.2f \n" %(somaS/38 * 100))
@@ -343,8 +351,8 @@ def analysisDay(item, date):
         plt.plot(datetimestamp, dateSSinst)
         plt.plot(datetimestamp, dateconsumption)
         plt.plot(datetimestamp, dategeneration)
-        plt.xlabel("Samples")
-        plt.ylabel("Instantaneous energy in kWh")
+        plt.xlabel("Time (timestamp)")
+        plt.ylabel("Instantaneous energy (kWh)")
         
         print("\n# The self-consumption for that day was %.2f and the self-sufficiency was %.2f\n\n" %(dateSC*100, dateSS*100))
         return datetimestamp, dateconsumption, dategeneration, dateSC, dateSCinst, dateSS, dateSSinst
@@ -364,6 +372,7 @@ def analysisDay(item, date):
         dateSCinst = md.selfConsumptionInst(dateconsumption, dategeneration, datetimestamp)
         dateSS = md.selfSufficiency(dateconsumption, dategeneration, datetimestamp)
         dateSSinst = md.selfSufficiencyInst(dateconsumption, dategeneration, datetimestamp)
+              
         
         plt.figure()
         plt.title("Self-consumption and self-sufficiency analysis for dates " + date[0] + " - " + date[1])
@@ -371,11 +380,173 @@ def analysisDay(item, date):
         plt.plot(datetimestamp, dateSSinst)
         plt.plot(datetimestamp, dateconsumption)
         plt.plot(datetimestamp, dategeneration)
-        plt.xlabel("Samples")
-        plt.ylabel("Instantaneous energy in kWh")
+        if type(item) == md.Apartment:
+            dateenergyreceived = item.energyreceived[indexes[0]:indexes[-1]]
+            plt.plot(datetimestamp, dateenergyreceived)
+            
+        plt.xlabel("Time (timestamp)")
+        plt.ylabel("Instantaneous energy (kWh)")
         
         print("\n# The self-consumption for that period was %.2f and the self-sufficiency was %.2f\n\n" %(dateSC*100, dateSS*100))
         return datetimestamp, dateconsumption, dategeneration, dateSC, dateSCinst, dateSS, dateSSinst
+
+
+
+
+
+
+#%%% Defining the load profile of each apartment
+
+#This is a function to establish a load profile of each individual apartment
+def loadProfile(item, inverters):
+    """Function to analyse and define an average load profile for each apartment of a pilot"""
+    
+    #as all apartments are already set with the same timestamp (done so in md.equality)
+    indexlist, datearray = splitDays(inverters[0].timestamp)
+
+    setApartParameters(inverters, indexlist)
+    setApplianceParameters(inverters, indexlist)
+
+    times_str = []; times = [] 
+    for i in range(96):
+        times_str.append(item.timestamp[i].time().strftime("%H:%M"))    
+        times.append(item.timestamp[i].time())
+        
+    fig, axisarr = plt.subplots(nrows=2, ncols=1, sharex=True)
+    axisarr[0].set_title("Average Load Profile of Apartment "+ item.ID)
+    axisarr[0].plot(range(len(times)), item.dailyavg)
+    axisarr[0].set_ylabel("Average Load (kWh)")
+    axisarr[0].text(1.5, max(item.dailyavg)-0.01, 'Average consumption per day of %.2f kWh' %(sum(item.dailyavg)))
+    axisarr[1].set_title("Load Distribution Per Timestamp of Ap "+ item.ID)
+    axisarr[1].boxplot(item.dailycons)
+    axisarr[1].set_ylabel("Distribution of Loads (kWh)")
+    axisarr[1].set_ylim([0, 0.5])
+    axisarr[1].grid(True, linestyle='-', color='lightgrey', alpha=0.5)
+    plt.xlabel("Time (timestamp)")
+    plt.xticks(range(1, len(times_str)+1), times_str, rotation = 90, fontsize=4)
+    plt.savefig("images/ap"+item.ID+"avg.png", bbox_inches = "tight")
+    
+
+    
+    f, axarr = plt.subplots(nrows=len(item.appliances), ncols=1, sharex=True)
+    plt.suptitle("Appliance Times of Use per Timestamp for Ap. " + item.ID)
+    plt.xticks(range(len(times_str)), times_str, rotation = 90, fontsize=4)
+    for i in range(len(item.appliances)):
+        axarr[i].bar(range(len(times)), item.appliances[i].counting)
+        axarr[i].text(.5,.9, item.appliances[i].ID, horizontalalignment='center',transform=axarr[i].transAxes, fontsize=6, color='red')
+        axarr[i].set_ylabel("Times used", fontsize=6)
+        axarr[i].set_ylim([0, max(item.appliances[i].counting)+30])
+#        axarr[i].title(item.appliances[i].ID)
+#        axarr[i].ylabel("Times used")
+#        ax1 = fig2.add_subplot(len(item.appliances),1,i+1)
+#        ax1.bar(range(len(times)), item.appliances[i].counting, alpha=0.5)
+        plt.xlabel("Time (timestamp)")
+        plt.savefig("images/ap"+item.ID+"appl.png", bbox_inches = "tight")
+       # plt.tick_params(axis='x', nticks=10)
+
+
+#Creating the load overlap
+def loadOverlap(inverters):
+    
+    times_str=[]; times=[]
+    for i in range(96):
+        times_str.append(inverters[0].timestamp[i].time().strftime("%H:%M"))    
+        times.append(inverters[0].timestamp[i].time())
+    
+    
+    #plotting the average consumption for each apartment
+    apartaverages = []
+    md.plt.figure()
+    for i in inverters:
+        for ap in i.apartments:
+            apartaverages.append(ap.dailyavg)
+            md.plt.plot(range(96), ap.dailyavg, linewidth=0.5)
+            
+    aptavg_trs = md.np.array(apartaverages).transpose()
+    
+    #plotting the min, max and mean consumption
+    mincons=[]; maxcons=[];avgcons = []
+    for i in range(len(aptavg_trs)):
+        mincons.append(min(aptavg_trs[i]))
+        maxcons.append(max(aptavg_trs[i]))
+        avgcons.append(md.np.mean(aptavg_trs[i]))
+    
+    md.plt.plot(range(96), mincons, 'k--', linewidth=2.0, label="Minimal Consumption")
+    md.plt.plot(range(96), maxcons, 'r--', linewidth=2.0, label="Maximal Consumption")
+    md.plt.plot(range(96), avgcons, 'b--', linewidth=2.0, label="Average Consumption")
+    md.plt.fill_between(range(96), mincons, alpha=0.2)
+    plt.legend()
+    plt.xticks(range(len(times_str)), times_str, rotation = 90, fontsize=6)
+    plt.xlabel("Timestamps in a day")
+    plt.ylabel("Average Consumption per Timestamp (kWh)")
+    plt.title("Average Load Profile and Pilot Baseload")
+    plt.text(1.5, max(maxcons)-0.01, 'Average consumption per day of %.2f kWh' %(sum(avgcons)))
+
+    
+#    
+#    md.plt.figure()
+#    apartcons = []
+#    for i in inverters:
+#        for ap in i.apartments:
+#            apartcons.append(ap.consumption)
+#            md.plt.plot(ap.timestamp, ap.consumption, linewidth=0.5)
+#    
+#    aptcns_trs = md.np.array(apartcons).transpose()
+#    
+#    mincons = []; maxcons = []; avgcons = []
+#    for i in range(len(aptcns_trs)):
+#        mincons.append(min(aptcns_trs[i]))
+#        maxcons.append(max(aptcns_trs[i]))
+#        avgcons.append(md.np.mean(aptcns_trs[i]))
+#    
+#    md.plt.plot(inverters[0].apartments[0].timestamp, mincons, 'k--', linewidth=2.0)
+#    md.plt.plot(inverters[0].apartments[0].timestamp, maxcons, 'r--', linewidth=2.0)
+#    md.plt.plot(inverters[0].apartments[0].timestamp, avgcons, 'b--', linewidth=2.0)
+#    md.plt.fill_between(inverters[0].apartments[0].timestamp, mincons, alpha=0.2)   
+
+    
+
+####Auxiliary functions for load profile
+def setApartParameters(inverters, indexlist):
+    #setting apartment's parameters
+    for i in inverters:
+        for ap in i.apartments:
+            dailycons = []; dailyavg = []
+            for time in indexlist:
+                daysplit = ap.consumption[time[0]:time[1]]
+                if len(daysplit) == 96:
+                    dailycons.append(daysplit)
+            
+            hourlyvalues = md.np.array(dailycons).transpose()
+            for v in hourlyvalues:
+                dailyavg.append(md.np.mean(v))
+            
+            ap.dailycons = md.np.array(dailycons)
+            ap.dailyavg = dailyavg
+        
+
+def setApplianceParameters(inverters, indexlist):
+    #setting appliances:
+    for i in inverters:
+        for ap in i.apartments:
+            for appl in ap.appliances:
+                dailycons = []
+                for time in indexlist:
+                    daysplit = appl.consumption[time[0]:time[1]]
+                    if len(daysplit) == 96:
+                        dailycons.append(daysplit)
+                appl.dailycons = md.np.array(dailycons)
+                appl.conspertimestamp = appl.dailycons.transpose()
+                #setting the appliances consumption time
+    
+                for moment in appl.conspertimestamp:
+                    moment[moment > 0] = 1
+                appl.counting = sum(appl.conspertimestamp.transpose())
+
+
+
+
+
 
 #%% Defining a DEMO function to quickly run the system's tests
 
@@ -393,7 +564,7 @@ def Demo(inverters, invlist, aptlist):
                 
     print("""\n\n### Starting DEMO for ECN Model - Herman Smart Grid Project ###\n\n
           mode selected: """ + mode + "\n\n")
-    plt.close("all")
+    #plt.close("all")
     maxinv, mininv, maxinvgen, mininvgen, maxap, minap, maxapgen, minapgen, maxapp, minapp = minmaxAnalysis(inverters, invlist, aptlist, "hide")
     
     if mode == "system":
@@ -433,7 +604,8 @@ def Demo(inverters, invlist, aptlist):
     
 
 
-#%% Data Diagnostics function - to detect all timestamps which present a problem
+#%% Data Diagnostics functions - to detect issues with the data
+
 
 #This function will run the whole data that we gather and notify which points present data inconsistencies
 def dataDiagnostics(inverters):
@@ -471,6 +643,40 @@ def dataDiagnostics(inverters):
     target.write("There were " + str(countinv) + " inverter issues. This is " + str(100*countinv/(len(inverters) * len(indexdates))) + " percent of the total days of generation \n")
     target.write("There were " + str(countappli) + " appliance issues \n")
     target.close()
+
+
+
+#This function will show what appliances are present in each apartment and deterc the heatpumps present in the system
+
+def findHeatPump(inverters):
+    """This function wil runn once to detect what appliances are registered to each apartment. It returns a text file in the current folder with the output."""
+
+    #Setting up the file for the diagnostics
+    filename = "Appliances" + str(md.datetime.today().date()) + ".txt"
+    target = open(filename, 'w')
+    target.write("#Appliances List for each apartment -  " + str(md.datetime.now()) + "\n\n\n######\n\n\n")
+
+    hpcount = 0
+    apartcount = 0
+    for inv in inverters:
+        for apart in inv.apartments:
+            apartcount += 1
+            target.write("\n-Apartment "+apart.ID + "; Appliances:\n")
+            appliancelist = ""
+            for app in apart.appliances:
+                appliancelist += (app.ID + "; ")
+            target.write(appliancelist + "\n")
+            if "rmtepomp" in appliancelist:
+                hpcount += 1
+            else:
+                target.write("*****There are no heatpumps in this apartment!*****\n")
+                
+
+    target.write("\n\n#The total number of heatpumps in this pilot is " + str(hpcount) + " with a number of apartments in " + str(apartcount) + "#")
+    target.close()
+
+
+
 
 #%% Functions    
  

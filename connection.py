@@ -95,8 +95,9 @@ def onsdorp():
 
 
 #Function to translate an apartment number as a string to the apartment object in our inverters list
-def apartments(string, inverterlist, apt):
-    return inverterlist[apt[string][0]].apartments[apt[string][1]]
+def apartments(string, inverters, aptlist):
+    """input string, list of inverter objects, dictionary of apartment list"""
+    return inverters[aptlist[string][0]].apartments[aptlist[string][1]]
 
 #Function to translate an inverter number as a string to the inverter object in our inverters list
 def inverters(string, inverterlist, inv):
